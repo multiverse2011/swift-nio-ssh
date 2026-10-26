@@ -349,6 +349,9 @@ extension NIOSSHCertifiedPublicKey {
 
     static let ed25519KeyPrefix = "ssh-ed25519-cert-v01@openssh.com".utf8
 
+    // RSA certificates are never parsed; this only keeps the switch exhaustive.
+    static let rsaKeyPrefix = "ssh-rsa-cert-v01@openssh.com".utf8
+
     internal var keyPrefix: String.UTF8View {
         switch self.key.backingKey {
         case .ed25519:
@@ -359,6 +362,8 @@ extension NIOSSHCertifiedPublicKey {
             return Self.p384KeyPrefix
         case .ecdsaP521:
             return Self.p521KeyPrefix
+        case .rsa:
+            return Self.rsaKeyPrefix
         case .certified:
             preconditionFailure("base key cannot be certified")
         }
