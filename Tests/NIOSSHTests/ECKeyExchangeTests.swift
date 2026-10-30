@@ -56,6 +56,38 @@ final class KeyExchangeTests: XCTestCase {
         try self.basicSuccessfulKeyExchangeNoPreviousSession(P521.KeyAgreement.PrivateKey.self)
     }
 
+    /// hmac-sha2-512 needs a 64 byte MAC key, longer than one SHA-256 digest (RFC 4253 § 7.2 key extension).
+    func testKeysLongerThanTheHashAreExtendedAndAgree() throws {
+        let sizes = ExpectedKeySizes(ivSize: 16, encryptionKeySize: 32, macKeySize: 64)
+        var server = EllipticCurveKeyExchange<DiffieHellmanGroup14PrivateKey>(
+            ourRole: .server([.init(ed25519Key: .init())]),
+            previousSessionIdentifier: nil
+        )
+        var client = EllipticCurveKeyExchange<DiffieHellmanGroup14PrivateKey>(
+            ourRole: .client,
+            previousSessionIdentifier: nil
+        )
+        var serverBytes = ByteBufferAllocator().buffer(capacity: 1024)
+        var clientBytes = serverBytes
+        let (serverResult, reply) = try server.completeKeyExchangeServerSide(
+            clientKeyExchangeMessage: client.initiateKeyExchangeClientSide(allocator: ByteBufferAllocator()),
+            serverHostKey: NIOSSHPrivateKey(ed25519Key: .init()),
+            initialExchangeBytes: &serverBytes,
+            allocator: ByteBufferAllocator(),
+            expectedKeySizes: sizes
+        )
+        let clientResult = try client.receiveServerKeyExchangePayload(
+            serverKeyExchangeMessage: reply,
+            initialExchangeBytes: &clientBytes,
+            allocator: ByteBufferAllocator(),
+            expectedKeySizes: sizes
+        )
+        XCTAssertEqual(clientResult.keys.outboundMACKey.bitCount, 512)
+        XCTAssertEqual(clientResult.keys.outboundMACKey, serverResult.keys.inboundMACKey)
+        XCTAssertEqual(clientResult.keys.inboundMACKey, serverResult.keys.outboundMACKey)
+        XCTAssertNotEqual(clientResult.keys.outboundMACKey, clientResult.keys.inboundMACKey)
+    }
+
     func testBasicSuccessfulKeyExchangeNoPreviousSessionDHGroup14() throws {
         try self.basicSuccessfulKeyExchangeNoPreviousSession(DiffieHellmanGroup14PrivateKey.self)
     }

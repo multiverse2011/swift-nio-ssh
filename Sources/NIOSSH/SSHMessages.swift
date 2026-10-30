@@ -55,6 +55,9 @@ enum SSHMessage: Equatable {
 }
 
 extension SSHMessage {
+    /// SSH_MSG_EXT_INFO (RFC 8308).
+    static let extensionInfoID: UInt8 = 7
+
     struct DisconnectMessage: Equatable {
         static let id: UInt8 = 1
 
@@ -382,6 +385,9 @@ extension ByteBuffer {
                     return nil
                 }
                 return .ignore(message)
+            case SSHMessage.extensionInfoID:
+                // RFC 8308: we never ask for extensions, so treat a peer's SSH_MSG_EXT_INFO as SSH_MSG_IGNORE.
+                return .ignore(.init(data: self.readSlice(length: self.readableBytes)!))
             case SSHMessage.UnimplementedMessage.id:
                 guard let message = self.readUnimplementedMessage() else {
                     return nil
