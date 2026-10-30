@@ -16,6 +16,12 @@ import Crypto
 import NIOCore
 import NIOFoundationCompat
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
+
 /// This protocol represents a public key that is capable of performing an ECDH key exchange in SSH.
 ///
 /// We use this protocol to abstract the various portions of the ECDH key exchange that are key-specific
@@ -38,11 +44,14 @@ protocol ECDHCompatiblePrivateKey {
 
     associatedtype Hasher: HashFunction
 
+    /// The raw shared secret, an unsigned big-endian integer. CryptoKit's `SharedSecret` for elliptic curves.
+    associatedtype SharedSecretBytes: ContiguousBytes = SharedSecret
+
     init()
 
     var publicKey: PublicKey { get }
 
-    func generatedSharedSecret(with: PublicKey) throws -> SharedSecret
+    func generatedSharedSecret(with: PublicKey) throws -> SharedSecretBytes
 
     static var keyExchangeAlgorithmNames: [Substring] { get }
 }

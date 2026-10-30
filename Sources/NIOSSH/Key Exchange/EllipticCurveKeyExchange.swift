@@ -52,7 +52,7 @@ struct EllipticCurveKeyExchange<PrivateKey: ECDHCompatiblePrivateKey>: EllipticC
     private var ourKey: PrivateKey
     private var theirKey: PrivateKey.PublicKey?
     private var ourRole: SSHConnectionRole
-    private var sharedSecret: SharedSecret?
+    private var sharedSecret: PrivateKey.SharedSecretBytes?
 
     init(ourRole: SSHConnectionRole, previousSessionIdentifier: ByteBuffer?) {
         self.ourRole = ourRole
@@ -230,7 +230,7 @@ extension EllipticCurveKeyExchange {
     }
 
     private func generateKeys(
-        sharedSecret: SharedSecret,
+        sharedSecret: PrivateKey.SharedSecretBytes,
         exchangeHash: PrivateKey.Hasher.Digest,
         sessionID: ByteBuffer,
         expectedKeySizes: ExpectedKeySizes
@@ -467,7 +467,7 @@ extension SymmetricKey {
 }
 
 extension HashFunction {
-    fileprivate mutating func updateAsMPInt(sharedSecret: SharedSecret) {
+    mutating func updateAsMPInt(sharedSecret: some ContiguousBytes) {
         sharedSecret.withUnsafeBytes { secretBytesPtr in
             var secretBytesPtr = secretBytesPtr[...]
 
@@ -507,21 +507,21 @@ extension HashFunction {
             switch (numberOfZeroBytes, topBitOfFirstNonZeroByteIsSet) {
             case (0, false):
                 // This is the easy case, we just treat the whole thing as the body.
-                lengthHelper.length = UInt8(secretBytesPtr.count)
+                lengthHelper.length = UInt32(secretBytesPtr.count)
                 lengthHelper.useExtraZeroByte = false
             case (0, true):
                 // This is an annoying case, we need to add a zero byte to the front.
-                lengthHelper.length = UInt8(secretBytesPtr.count + 1)
+                lengthHelper.length = UInt32(secretBytesPtr.count + 1)
                 lengthHelper.useExtraZeroByte = true
             case (_, false):
                 // Strip off all the leading zero bytes.
                 secretBytesPtr = secretBytesPtr.dropFirst(numberOfZeroBytes)
-                lengthHelper.length = UInt8(secretBytesPtr.count)
+                lengthHelper.length = UInt32(secretBytesPtr.count)
                 lengthHelper.useExtraZeroByte = false
             case (_, true):
                 // Strip off all but one of the leading zero bytes.
                 secretBytesPtr = secretBytesPtr.dropFirst(numberOfZeroBytes - 1)
-                lengthHelper.length = UInt8(secretBytesPtr.count)
+                lengthHelper.length = UInt32(secretBytesPtr.count)
                 lengthHelper.useExtraZeroByte = false
             }
 
@@ -539,21 +539,24 @@ extension HashFunction {
 /// avoid copying our shared secret into public memory, we fiddle about with those extra bytes in this structure, and
 /// pass an interior pointer to it into the hasher in order to give good hashing performance.
 private struct SharedSecretLengthHelper {
-    // We need a 4 byte length in network byte order, and an optional fifth bit. As Curve25519 shared secrets are always
-    // 32 bytes long (before the mpint transformation), we only ever actually need to modify one of these bytes:
-    // the 4th.
+    // We need a 4 byte length in network byte order, and an optional fifth bit. Elliptic curve shared secrets fit in
+    // one byte of length, but finite field Diffie-Hellman secrets (e.g. 256 bytes for group14) do not.
     private var backingBytes = (UInt8(0), UInt8(0), UInt8(0), UInt8(0), UInt8(0))
 
     /// Whether we should hash an extra zero byte.
     var useExtraZeroByte: Bool = false
 
     /// The length to encode.
-    var length: UInt8 {
+    var length: UInt32 {
         get {
-            self.backingBytes.3
+            UInt32(self.backingBytes.0) << 24 | UInt32(self.backingBytes.1) << 16 | UInt32(self.backingBytes.2) << 8
+                | UInt32(self.backingBytes.3)
         }
         set {
-            self.backingBytes.3 = newValue
+            self.backingBytes.0 = UInt8(truncatingIfNeeded: newValue >> 24)
+            self.backingBytes.1 = UInt8(truncatingIfNeeded: newValue >> 16)
+            self.backingBytes.2 = UInt8(truncatingIfNeeded: newValue >> 8)
+            self.backingBytes.3 = UInt8(truncatingIfNeeded: newValue)
         }
     }
 

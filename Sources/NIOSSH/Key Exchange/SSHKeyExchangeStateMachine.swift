@@ -594,6 +594,8 @@ extension SSHKeyExchangeStateMachine {
         EllipticCurveKeyExchange<P256.KeyAgreement.PrivateKey>.self,
         EllipticCurveKeyExchange<P521.KeyAgreement.PrivateKey>.self,
         EllipticCurveKeyExchange<Curve25519.KeyAgreement.PrivateKey>.self,
+        // Last, so it is only chosen when the peer offers no elliptic curve exchange.
+        EllipticCurveKeyExchange<DiffieHellmanGroup14PrivateKey>.self,
     ]
 
     static let supportedKeyExchangeAlgorithms: [Substring] = supportedKeyExchangeImplementations.flatMap {

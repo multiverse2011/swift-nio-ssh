@@ -56,6 +56,10 @@ final class KeyExchangeTests: XCTestCase {
         try self.basicSuccessfulKeyExchangeNoPreviousSession(P521.KeyAgreement.PrivateKey.self)
     }
 
+    func testBasicSuccessfulKeyExchangeNoPreviousSessionDHGroup14() throws {
+        try self.basicSuccessfulKeyExchangeNoPreviousSession(DiffieHellmanGroup14PrivateKey.self)
+    }
+
     private func basicSuccessfulKeyExchangeNoPreviousSession<KeyType: ECDHCompatiblePrivateKey>(
         _: KeyType.Type = KeyType.self
     ) throws {
@@ -108,6 +112,10 @@ final class KeyExchangeTests: XCTestCase {
 
     func testBasicSuccessfulKeyExchangeWithPreviousSessionP521() throws {
         try self.basicSuccessfulKeyExchangeWithPreviousSession(P521.KeyAgreement.PrivateKey.self)
+    }
+
+    func testBasicSuccessfulKeyExchangeWithPreviousSessionDHGroup14() throws {
+        try self.basicSuccessfulKeyExchangeWithPreviousSession(DiffieHellmanGroup14PrivateKey.self)
     }
 
     func basicSuccessfulKeyExchangeWithPreviousSession<KeyType: ECDHCompatiblePrivateKey>(
